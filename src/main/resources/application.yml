@@ -1,0 +1,17 @@
+server:
+  port: 1324
+
+spring:
+  application:
+    name: test
+
+file:
+  upload:
+    ftp-mapping-root-path: /home/robot
+    ftp-root-path: /home/robot
+    host: 172.16.141.2
+    port: 21
+    secure: false
+    username: test
+    password: test
+    upload-type: ftps
