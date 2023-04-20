@@ -11,14 +11,12 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetAdapter;
 import java.awt.dnd.DropTargetDropEvent;
 import java.awt.event.*;
 import java.io.File;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -35,6 +33,7 @@ public class DragFrame extends JFrame {
     TextField textField;
     JComboBox<Station> jComboBox1;
     JComboBox<Device> jComboBox2;
+    JCheckBox jCheckBox;
 
     JPopupMenu pop;
 
@@ -75,8 +74,10 @@ public class DragFrame extends JFrame {
                 return this;
             }
         });
+        jCheckBox = new JCheckBox("是否做样");
         textField = new TextField(20);
         valueField = new TextField(6);
+        jp1.add(jCheckBox);
         jp1.add(valueField);
         jp1.add(textField);
         MouseListener mouseListener = new MouseListener() {
@@ -187,35 +188,54 @@ public class DragFrame extends JFrame {
 
     private String buildSql(List<UploadResult> results) {
         Station station = (Station) jComboBox1.getSelectedItem();
+        boolean selected = jCheckBox.isSelected();
         String text = textField.getText();
         String value = valueField.getText();
         LocalDateTime time = LocalDateTime.parse(text, DTF);
         String stationCode = station.getStationCode();
         Device device = (Device) jComboBox2.getSelectedItem();
         String deviceCode = device.getDeviceCode();
-        StringBuilder sb = new StringBuilder("insert into t_sys_file (old_file_name,new_file_name,login_id,file_att) values");
+        StringBuilder sb = new StringBuilder();
         int size = results.size();
         for (int i = 0; i < size; i++) {
+            if (selected) {
+                int cmdCode;
+                switch (deviceCode) {
+                    case "002":
+                        cmdCode = 18;
+                        break;
+                    case "006":
+                        cmdCode = 27;
+                        break;
+                    case "010":
+                        cmdCode = 42;
+                        break;
+                    default:
+                        cmdCode = 57;
+                }
+                sb.append("insert into b_cmd_log (cmd_id, get_time, cmd_up_down, s_desc, cmd_id2, s_desc2, station_code) values (");
+                sb.append(cmdCode).append(", ");
+                sb.append("'").append(DTF.format(time)).append("', ");
+                sb.append("4, 0, ").append(cmdCode - 1).append(", ");
+                sb.append("0, ").append("'").append(stationCode).append("'");
+                sb.append(");\n");
+            }
             UploadResult uploadResult = results.get(i);
             UploadResult.UploadFile uploadFile = uploadResult.getUploadFile().get(0);
             String oldFileName = uploadFile.getOldFileName();
             String newFileName = uploadFile.getNewFileName();
-            sb.append("('");
+            sb.append("insert into t_sys_file (old_file_name,new_file_name,login_id,file_att) values ('");
             sb.append(oldFileName);
             sb.append("','");
             sb.append(newFileName);
             sb.append("','");
             sb.append(stationCode);
             sb.append("','JPG')");
-            if (i == size - 1) {
-                sb.append(";");
-            } else {
-                sb.append(",");
-            }
+            sb.append(";\n");
         }
         time = time.plusMinutes(59L);
-        sb.append("insert into b_task_result (task_code, get_time, result_value, result_desc, station_code, device_code, s_desc)\n")
-                .append(String.format("values ('A060601', '%s', 1, '%s', '%s', '%s', '')",
+        sb.append("insert into b_task_result (task_code, get_time, result_value, result_desc, station_code, device_code, s_desc) ")
+                .append(String.format("values ('A060601', '%s', 1, '%s', '%s', '%s', '');\n",
                         DTF.format(time), value, stationCode, deviceCode));
         return sb.toString();
     }
